@@ -1,0 +1,35 @@
+- hosts: 10.4.7.22
+  tasks:
+    - name: Split String to IP
+      shell: echo "{{ ansible_default_ipv4.address }}" | awk -F '[.]+' '{print $3"-"$4}'
+      register: network
+      changed_when: false
+
+    - name: Create controller and scheduler scripts supervisor conf
+      template:
+        src: "{{ item.source_file }}"
+        dest: "{{ item.dest_file }}"
+        mode: '0755'
+      with_items:
+        - { source_file: 'template/kube-controller-manager.ini.j2', dest_file: '/etc/supervisord.d/kube-controller-manager.ini' }
+        - { source_file: 'template/kube-scheduler.ini.j2', dest_file: '/etc/supervisord.d/kube-scheduler.ini' }
+        - { source_file: 'template/kube-controller-manager.sh', dest_file: '/opt/kubernetes/server/bin/kube-controller-manager.sh' }
+        - { source_file: 'template/kube-scheduler.sh', dest_file: '/opt/kubernetes/server/bin/kube-scheduler.sh' }
+
+    - name: Create directory for controller and scheduler
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      with_items:
+        - /data/logs/kubernetes/kube-controller-manager
+        - /data/logs/kubernetes/kube-scheduler
+
+    - name: Create a symbolic link to kubectl command
+      file:
+        src: /opt/kubernetes/server/bin/kubectl
+        dest: /usr/bin/kubectl
+        state: link
+
+    - name: add to supervisor manager
+      shell: supervisorctl update
