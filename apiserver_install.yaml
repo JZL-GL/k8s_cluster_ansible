@@ -1,0 +1,78 @@
+- hosts: 10.4.7.22
+  tasks:
+    - name: Judge a file or dir is exist
+      shell: ls /opt/kubernetes
+      ignore_errors: True
+      register: result 
+      tags: vaee
+    
+    - debug:
+        msg: "{{ result }}"
+      tags: vaee
+
+    - shell: echo "/opt/etcd directory exist, exit."
+      failed_when: result.stderr == ''
+      tags: vaee
+
+    - name: Downlaod kubernetes-server package
+      unarchive:
+        src: http://192.168.1.60:8080/day1/10.4.7.21/kubernetes-server-linux-amd64-v1.15.2.tar.gz
+        dest: /opt
+        remote_src: yes
+
+    - name: Create logs/data/certs Directory For kube-apiserver
+      file:
+        path: "{{ item.dest_file }}"
+        state: directory
+        mode: '0755'
+      with_items:
+        - { dest_file: '/data/logs/kubernetes/kube-apiserver'}
+       
+    - name: Copy Certs And Private Key And Conf To Remote Server
+      # copy模块，如果没有/opt/kubernetes/server/bin/cert/目录, 那么会创建该目录, 然后再复制该文件
+      copy:
+        src: "{{ item.source_file }}"
+        dest: "{{ item.dest_file }}"
+      with_items:
+        - { source_file: 'template/apiserver-key.pem', dest_file: '/opt/kubernetes/server/bin/cert/'}
+        - { source_file: 'template/apiserver.pem', dest_file: '/opt/kubernetes/server/bin/cert/'}
+        - { source_file: 'template/ca-key.pem', dest_file: '/opt/kubernetes/server/bin/cert/'}
+        - { source_file: 'template/ca.pem', dest_file: '/opt/kubernetes/server/bin/cert/'}
+        - { source_file: 'template/client-key.pem', dest_file: '/opt/kubernetes/server/bin/cert/'}
+        - { source_file: 'template/client.pem', dest_file: '/opt/kubernetes/server/bin/cert/'}
+        - { source_file: 'template/audit.yaml', dest_file: '/opt/kubernetes/server/bin/conf/'}
+
+    - name: Split String to IP
+      shell: echo "{{ ansible_default_ipv4.address }}" | awk -F '[.]+' '{print $3"-"$4}'
+      register: network
+      changed_when: false
+
+    - name: Print Variables
+      debug:
+        msg: "{{ network }}"
+
+    - name: Transfer kube-apiserver.sh.j2 To /opt/etcd/
+      template:
+        src: template/kube-apiserver.sh.j2
+        dest: /opt/kubernetes/server/bin/kube-apiserver.sh
+        mode: '0755'                                                                                                                                       
+
+    - name: Yum Supervisor Sofrware
+      yum:
+        name: supervisor
+        state: present
+
+    - name: Start Supervisor Service
+      service:
+        name: supervisord
+        state: started
+        enabled: True
+
+    - name: Copy kube-apiserver.ini To /etc/supervisord.d/
+      template:
+        src: template/kube-apiserver.ini.j2
+        dest: /etc/supervisord.d/kube-apiserver.ini
+        mode: '0644'
+
+    - name: Start ETCD Serice
+      shell: supervisorctl update

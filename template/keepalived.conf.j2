@@ -1,0 +1,39 @@
+! Configuration File for keepalived
+
+global_defs {
+   router_id {{ ansible_default_ipv4.address }}
+
+}
+
+vrrp_script chk_nginx {
+    script "/etc/keepalived/check_port.sh 7443"
+    interval 2
+    weight -20
+}
+
+vrrp_instance VI_1 {
+{% if ansible_default_ipv4.address == "10.4.7.11" %}
+    state MASTER
+    priority 100
+    nopreempt
+{% elif ansible_default_ipv4.address == "10.4.7.12" %}
+    state BACKUP
+    priority 90
+{% endif %}
+    interface eth0
+    virtual_router_id 251
+    advert_int 1
+    mcast_src_ip {{ ansible_default_ipv4.address }}
+
+    authentication {
+        auth_type PASS
+        auth_pass 11111111
+    }
+    track_script {
+         chk_nginx
+    }
+    virtual_ipaddress {
+        10.4.7.10
+    }
+}
+

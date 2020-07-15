@@ -1,0 +1,41 @@
+- hosts: 10.4.7.11,10.4.7.12
+  tasks:
+    - name: Install nginx keepalived service
+      yum:
+        name:
+          - nginx
+          - keepalived
+        state: present
+
+    - name: Copy nginx.conf file
+      copy:
+        src: template/nginx.conf
+        dest: /etc/nginx/nginx.conf
+        mode: '0644'
+      notify: Restart nginx service
+
+    - name: Configure keepalived service
+      template:
+        src: template/keepalived.conf.j2
+        dest: /etc/keepalived/keepalived.conf
+        mode: '0644'
+      notify: Restart keepalived serivce
+    
+    - name: Configure keepalived scripts
+      copy:
+        src: template/check_port.sh
+        dest: /etc/keepalived/check_port.sh
+        mode: '0755'
+
+  handlers:
+    - name: Restart nginx service
+      service:
+        name: nginx
+        state: restarted
+        enabled: True
+
+    - name: Restart keepalived serivce
+      service:
+        name: keepalived
+        state: restarted
+        enabled: True
