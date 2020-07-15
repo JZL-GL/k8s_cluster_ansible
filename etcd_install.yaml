@@ -1,0 +1,104 @@
+- hosts: 10.4.7.22
+  tasks:
+    - name: Judge a file or dir is exist
+      shell: ls /opt/etcd
+      ignore_errors: True
+      register: result 
+      tags: vaee
+    
+    - debug:
+        msg: "{{ result }}"
+      tags: vaee
+
+    - shell: echo "/opt/etcd directory exist, exit."
+      failed_when: result.stderr == ''
+      tags: vaee
+
+    - name: Create User to ETCD
+      user:
+        name: etcd
+        create_home: False
+        shell: /sbin/nologin
+
+    - name: Downlaod ETCD Package
+      unarchive:
+        # src: http://192.168.1.60:8080/day1/10.4.7.21/etcd-v3.1.20-linux-amd64.tar.gz
+        # 推荐使用remote_src, 因为下载的时候是在远程机器上下载的, 如果是本地文件的话, 那么ansible机器的带宽可能会跑满
+        src: template/etcd-v3.1.20-linux-amd64.tar.gz
+        dest: /opt
+        copy: True
+        # remote_src: yes
+
+    - name: Rename ETCD Dirctory Name
+      shell: mv /opt/etcd-v3.1.20-linux-amd64 /opt/etcd-v3.1.20
+
+    - name: Create Soft link for ETCD
+      file:
+        state: link
+        src: /opt/etcd-v3.1.20
+        dest: /opt/etcd
+
+    - name: Create logs/data/certs Directory For ETCD
+      file:
+        path: "{{ item.dest_file }}"
+        state: directory
+        mode: '0755'
+      with_items:
+        - { dest_file: '/opt/etcd/certs'}
+        - { dest_file: '/data/etcd/'}
+        - { dest_file: '/data/logs/etcd-server/'}
+       
+    - name: Copy Certs And Private Key To Remote Server
+      copy:
+        src: "{{ item.source_file }}"
+        dest: "{{ item.dest_file }}"
+      with_items:
+        - { source_file: 'template/etcd-peer-key.pem', dest_file: '/opt/etcd/certs/'}
+        - { source_file: 'template/etcd-peer.pem', dest_file: '/opt/etcd/certs/'}
+        - { source_file: 'template/ca.pem', dest_file: '/opt/etcd/certs/'}
+
+    - name: Split String to IP
+      shell: echo "{{ ansible_default_ipv4.address }}" | awk -F '[.]+' '{print $3"-"$4}'
+      register: network
+      changed_when: false
+
+    - name: Print Variables
+      debug:
+        msg: "{{ network }}"
+
+    - name: Transfer etcd-server-startup.sh.j2 To /opt/etcd/
+      template:
+        src: template/etcd-server-startup.sh.j2
+        dest: /opt/etcd/etcd-server-startup.sh
+        mode: '0755'                                                                                                                                       
+
+    - name: Modify Dirctory attribute
+      file:
+        path: "{{ item.dest_file }}"
+        owner: etcd
+        group: etcd
+        recurse: True
+      with_items:
+        - { dest_file: '/opt/etcd-v3.1.20/'}
+        - { dest_file: '/data/etcd/'}
+        - { dest_file: '/data/logs/etcd-server/'}
+
+    - name: Yum Supervisor Sofrware
+      yum:
+        name: supervisor
+        state: present
+
+    - name: Start Supervisor Service
+      service:
+        name: supervisord
+        state: started
+        enabled: True
+
+    - name: Copy etcd-server.ini.j2 To /etc/supervisord.d/
+      template:
+        src: template/etcd-server.ini.j2
+        dest: /etc/supervisord.d/etcd-server.ini
+        mode: '0644'
+
+    - name: Start ETCD Serice
+      shell: supervisorctl update

@@ -1,0 +1,2 @@
+# 批量替换之前的字符串，防止网卡eth0桥接后没有IP的情况
+# find template/* | xargs sed -ri 's#ansible_all_ipv4_addresses\[0\]#ansible_default_ipv4.address#g' 

@@ -1,0 +1,12 @@
+- hosts: 10.4.7.11
+  tasks:
+    - name: Download cfssl utils
+      get_url:
+        url: "{{ item.http_url }}"
+        dest: "{{ item.dest_file }}"
+        mode: '0755'
+      with_items:
+        - { http_url: 'https://pkg.cfssl.org/R1.2/cfssl_linux-amd64', dest_file: '/usr/bin/cfssl'}
+        - { http_url: 'https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64', dest_file: '/usr/bin/cfssl-json'}
+        - { http_url: 'https://pkg.cfssl.org/R1.2/cfssl-certinfo_linux-amd64', dest_file: '/usr/bin/cfssl-certinfo'}
+

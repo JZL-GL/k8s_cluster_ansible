@@ -1,0 +1,40 @@
+- hosts: all
+  tasks:
+    - name: Add repository
+      shell: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+      notify:
+        - yum-clean-metadata
+      ignore_errors: yes
+      - name: Install Docker Software
+      shell: curl -fsSL https://get.docker.com | bash -s docker --mirror Aliyun
+      notify:
+        - Restart Docker Service
+
+    - name: Split String
+      shell: echo "{{ ansible_default_ipv4.address }}" | awk -F '[.]+' '{print $3"."$4}'
+      register: docker_net
+      changed_when: false
+
+    - name: Print Variables
+      debug:
+        msg: "{{ docker_net }}"
+
+    - name: Transfer dameon.json File
+      template:
+        src: template/daemon.json
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart Docker Service
+
+  handlers:
+    - name: yum-clean-metadata
+      yum:
+        update_cache: True
+
+    - name: Restart Docker Service
+      service:
+        name: docker
+        state: restarted
+        enabled: True

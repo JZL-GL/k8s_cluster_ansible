@@ -1,0 +1,25 @@
+- hosts: "{{ host }}"
+  tasks:
+    - name: Install dependence Software
+      yum:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+        - yum-utils
+        - device-mapper-persistent-data
+        - lvm2
+        - net-tools
+        - tmux
+        - vim
+        - nmap
+        - bash-completion
+        - wget
+        - telnet
+        - tree
+        - nmap
+        - sysstat
+        - dos2unix
+        - lrzsz
+        - bind-utils
+        - git

@@ -1,0 +1,47 @@
+- hosts: 10.4.7.11
+  vars_files: ./vars/vars_public.yaml
+
+  tasks:
+    - name: Install Bind Sofrware
+      yum:
+        name: bind
+        state: present
+
+    - name: Transfer named.conf file
+      template:
+        src: "{{ item.source_file }}"
+        dest: "{{ item.dest_addr }}"
+        owner: root
+        group: named
+        mode: '0644'
+      with_items:
+        - { source_file: 'template/named.conf', dest_addr: '/etc/named.conf'}
+        - { source_file: 'template/named.rfc1912.zones', dest_addr: '/etc/named.rfc1912.zones'}
+        - { source_file: 'template/host.com.zone', dest_addr: '/var/named/host.com.zone'}
+        - { source_file: 'template/od.com.zone', dest_addr: '/var/named/od.com.zone'}
+      notify: Restart named service
+
+- hosts: all
+  vars_files: ./vars/vars_public.yaml
+
+  tasks:
+    - name: Modify Network Config
+      template:
+        src: template/ifcfg-eth0
+        dest: /etc/sysconfig/network-scripts/ifcfg-eth0
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart NetworkManager Service
+
+  handlers:
+    - name: Restart NetworkManager Service
+      service:
+        name: NetworkManager
+        state: restarted
+
+    - name: Restart named service
+      service:
+        name: named
+        state: restarted
+        enabled: True
