@@ -1,0 +1,28 @@
+#!/bin/bash
+##############################################################
+# File Name: template/kubelet.sh
+# Version: V1.0
+# Author: JZL
+# Organization: 353553339@qq.com
+# Created Time : 2020-07-17 14:59:51
+# Description:
+##############################################################
+
+./kubelet \
+  --anonymous-auth=false \
+  --cgroup-driver systemd \
+  --cluster-dns 192.168.0.2 \
+  --cluster-domain cluster.local \
+  --runtime-cgroups=/systemd/system.slice \
+  --kubelet-cgroups=/systemd/system.slice \
+  --fail-swap-on="false" \
+  --client-ca-file ./cert/ca.pem \
+  --tls-cert-file ./cert/kubelet.pem \
+  --tls-private-key-file ./cert/kubelet-key.pem \
+  --hostname-override hdss{{ network.stdout_lines[0] }}.host.com \
+  --image-gc-high-threshold 20 \
+  --image-gc-low-threshold 10 \
+  --kubeconfig ./conf/kubelet.kubeconfig \
+  --log-dir /data/logs/kubernetes/kube-kubelet \
+  --pod-infra-container-image harbor.od.com/public/pause:latest \
+  --root-dir /data/kubelet

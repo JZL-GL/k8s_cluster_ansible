@@ -52,10 +52,11 @@
       copy:
         src: "{{ item.source_file }}"
         dest: "{{ item.dest_file }}"
+        mode: "{{ item.file_mode }}"
       with_items:
-        - { source_file: 'template/etcd-peer-key.pem', dest_file: '/opt/etcd/certs/'}
-        - { source_file: 'template/etcd-peer.pem', dest_file: '/opt/etcd/certs/'}
-        - { source_file: 'template/ca.pem', dest_file: '/opt/etcd/certs/'}
+        - { source_file: 'template/etcd-peer-key.pem', dest_file: '/opt/etcd/certs/', file_mode: '0600' }
+        - { source_file: 'template/etcd-peer.pem', dest_file: '/opt/etcd/certs/', file_mode: '0644' }
+        - { source_file: 'template/ca.pem', dest_file: '/opt/etcd/certs/', file_mode: '0644' }
 
     - name: Split String to IP
       shell: echo "{{ ansible_default_ipv4.address }}" | awk -F '[.]+' '{print $3"-"$4}'

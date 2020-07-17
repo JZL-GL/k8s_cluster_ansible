@@ -1,0 +1,12 @@
+- hosts: all
+  tasks:
+    - name: Modify /root/.bashrc file
+      lineinfile:
+        path: /root/.bashrc
+        insertafter: 'alias mv'
+        line: alias exit='echo `pwd` > /root/pwd.txt && exit'
+
+    - name: Modify /etc/bashrc file
+      lineinfile:
+        path: /etc/bashrc
+        line: 'cd `cat /root/pwd.txt`'
