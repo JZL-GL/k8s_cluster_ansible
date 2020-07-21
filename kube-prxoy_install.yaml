@@ -1,0 +1,60 @@
+- hosts: 10.4.7.22
+  tasks:
+    - name: Tarnsfer pem
+      copy:
+        src: "{{ item.source_file }}"
+        dest: "{{ item.dest_file }}"
+        mode: "{{ item.file_mode }}"
+      with_items:
+        - { source_file: 'template/kube-proxy-client-key.pem', dest_file: '/opt/kubernetes/server/bin/cert/', file_mode: '0600' }
+        - { source_file: 'template/kube-proxy-client.pem', dest_file: '/opt/kubernetes/server/bin/cert/', file_mode: '0644' }
+
+    - name: Create kubu-proxy config
+      script:
+        cmd: template/kube-proxy_conf.sh
+        chdir: /opt/kubernetes/server/bin/conf/
+        creates: /opt/kubernetes/server/bin/conf/kube-proxy.kubeconfig
+        executable: /usr/bin/bash
+        #args:
+          # creates 不能放在args下面, 不会生效的，同时executable也是一样的, 但是文档示例却是这么使用, 文档示例不是通过cmd执行的, 或许这就是区别了
+          # creates: /opt/kubernetes/server/bin/conf/kubelet.kubeconfig
+
+    - name: Start Using ipvs
+      script:
+        cmd: template/ipvs_on.sh
+        executable: /usr/bin/bash
+
+    - name: Create directory to kube-proxy start
+      file:
+        path: "{{ item.dir_path }}"
+        state: directory
+      with_items:
+        - { dir_path: '/data/logs/kubernetes/kube-proxy' }
+
+    - name: Split String to IP
+      shell: echo "{{ ansible_default_ipv4.address }}" | awk -F '[.]+' '{print $3"-"$4}'
+      register: network
+      changed_when: false
+        
+    - name: Print Variables
+      debug:
+        msg: "{{ network }}"
+
+    - name: Transfer kubelet.sh file and supervisor.ini
+      template:
+        src: "{{ item.source_file }}"
+        dest: "{{ item.dest_file }}"
+        mode: "{{ item.file_mode }}"
+      with_items:
+        - { source_file: 'template/kube-proxy.sh.j2', dest_file: '/opt/kubernetes/server/bin/kube-proxy.sh', file_mode: '0755' }
+        - { source_file: 'template/kube-proxy.ini.j2', dest_file: '/etc/supervisord.d/kube-proxy.ini', file_mode: '0644' }
+      notify: Exec supervisorctl update
+
+    - name: Yum install ipvsadm
+      yum: 
+        name: ipvsadm
+        state: present
+
+  handlers:
+    - name: Exec supervisorctl update
+      shell: supervisorctl update
