@@ -1,0 +1,26 @@
+- hosts: all
+  tasks:
+    - name: Transfer chrony client conf file 
+      copy:
+        src: template/chrony_client.conf
+        dest: /etc/chrony.conf
+      when: ansible_hostname != "hdss7-200"
+      notify: Restart chronyd client service
+
+    - name: Transfer chrony server conf file
+      copy:
+        src: template/chrony_server.conf
+        dest: /etc/chrony.conf
+      when: ansible_hostname == "hdss7-200"
+      notify: Restart chronyd server service
+
+  handlers:
+    - name: Restart chronyd client service
+      service:
+        name: chronyd
+        state: restarted
+
+    - name: Restart chronyd server service
+      service:
+        name: chronyd
+        state: restarted

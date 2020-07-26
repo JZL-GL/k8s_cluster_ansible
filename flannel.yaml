@@ -1,0 +1,92 @@
+- hosts: 10.4.7.22
+  tasks:
+    - name: Judge a file or dir is exist
+      shell: ls /opt/flannel
+      ignore_errors: True
+      register: result
+      tags: vaee
+
+    - debug:
+        msg: "{{ result }}"
+      tags: vaee
+
+    - shell: echo "/opt/flannel directory exist, exit."
+      failed_when: result.stderr == ''
+      tags: vaee
+
+    - name: Create directory to flanned
+      file:
+        path: "{{ item.dir_path }}"
+        state: directory
+      with_items:
+        - { dir_path: '/opt/flannel-v0.11.0/' }
+
+    - name: Downlaod flannel package
+      unarchive:
+        # src: http://192.168.1.60:8080/day1/10.4.7.21/etcd-v3.1.20-linux-amd64.tar.gz
+        # 推荐使用remote_src, 因为下载的时候是在远程机器上下载的, 如果是本地文件的话, 那么ansible机器的带宽可能会跑满
+        src: template/flannel-v0.11.0-linux-amd64.tar.gz
+        dest: /opt/flannel-v0.11.0/
+        copy: True
+
+    - name: Create Soft link for ETCD
+      file:
+        state: link
+        src: /opt/flannel-v0.11.0/
+        dest: /opt/flannel
+
+    - name: Create directory to flanned
+      file:
+        path: "{{ item.dir_path }}"
+        state: directory
+      with_items:
+        - { dir_path: '/data/logs/flanneld/' }
+        - { dir_path: '/opt/flannel/cert' }
+
+    - name: Tarnsfer pem
+      copy:
+        src: "{{ item.source_file }}"
+        dest: "{{ item.dest_file }}"
+        mode: "{{ item.file_mode }}"
+      with_items:
+        - { source_file: 'template/client-key.pem', dest_file: '/opt/flannel/cert/', file_mode: '0600' }
+        - { source_file: 'template/client.pem', dest_file: '/opt/flannel/cert/', file_mode: '0644' }
+        - { source_file: 'template/ca.pem', dest_file: '/opt/flannel/cert/', file_mode: '0644' }
+
+    - name: Set flanneld net to etcd
+      script:
+        cmd: template/flannel_to_etcd.sh
+        chdir: /opt/etcd/
+        # creates: /opt/kubernetes/server/bin/conf/kubelet.kubeconfig
+        executable: /usr/bin/bash
+      ignore_errors: True
+
+    - name: Split String to IP
+      shell: echo "{{ ansible_default_ipv4.address }}" | awk -F '[.]+' '{print $3"-"$4}'
+      register: network
+      changed_when: false
+
+    - name: Split String to IP
+      shell: echo "{{ ansible_default_ipv4.address }}" | awk -F '[.]+' '{print $3"."$4}'
+      register: network_dian
+      changed_when: false
+        
+    - name: Print Variables
+      debug:
+        msg: "{{ network }}"
+
+    - name: Transfer kubelet.sh file and supervisor.ini
+      template:
+        src: "{{ item.source_file }}"
+        dest: "{{ item.dest_file }}"
+        mode: "{{ item.file_mode }}"
+      with_items:
+        - { source_file: 'template/flanneld.sh.j2', dest_file: '/opt/flannel/flanneld.sh', file_mode: '0755' }
+        - { source_file: 'template/flannel.ini.j2', dest_file: '/etc/supervisord.d/flannel.ini', file_mode: '0644' }
+        - { source_file: 'template/subnet.env.j2', dest_file: '/opt/flannel/subnet.env', file_mode: '0755' }
+      notify: Exec supervisorctl update
+      tags: test
+
+  handlers:
+    - name: Exec supervisorctl update
+      shell: supervisorctl update
